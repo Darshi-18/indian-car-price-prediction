@@ -3,11 +3,10 @@ import streamlit as st
 import pandas as pd
 import joblib
 import gdown
-import os
 from pathlib import Path
 
 # ============================================================
-# 1. APP CONFIGURATION
+# 1. PAGE CONFIGURATION
 # ============================================================
 
 st.set_page_config(
@@ -18,13 +17,13 @@ st.set_page_config(
 )
 
 APP_DIR = Path(__file__).resolve().parent
-MODEL_PATH = APP_DIR / "car_price_model_compressed.joblib"
+MODEL_PATH = APP_DIR / "car_price_model.joblib"
 
-# Paste your Google Drive file ID here.
+# Your Google Drive model file ID
 GOOGLE_DRIVE_FILE_ID = "1YDqqIyv8gkE8lIQzQLOE9qA4NdoeHch2"
 
 # ============================================================
-# 2. CUSTOM UI STYLING
+# 2. CUSTOM STYLING
 # ============================================================
 
 st.markdown(
@@ -32,21 +31,45 @@ st.markdown(
     <style>
     .stApp {
         background-color: #f5f7fb;
-    }
-
-    .main-title {
-        font-size: 36px;
-        font-weight: 800;
         color: #17365d;
-        text-align: center;
-        margin-bottom: 5px;
     }
 
-    .subtitle {
-        font-size: 16px;
-        color: #526579;
-        text-align: center;
-        margin-bottom: 25px;
+    h1, h2, h3, p {
+        color: #17365d;
+    }
+
+    [data-testid="stWidgetLabel"] p {
+        color: #17365d !important;
+    }
+
+    [data-testid="stSidebar"] {
+        background-color: #202633;
+    }
+
+    [data-testid="stSidebar"] h1,
+    [data-testid="stSidebar"] h2,
+    [data-testid="stSidebar"] h3,
+    [data-testid="stSidebar"] p,
+    [data-testid="stSidebar"] li {
+        color: #ffffff !important;
+    }
+
+    .stTextInput input,
+    .stNumberInput input {
+        color: #ffffff !important;
+    }
+
+    .stSelectbox div[data-baseweb="select"] {
+        color: #ffffff;
+    }
+
+    div.stButton > button {
+        width: 100%;
+        background-color: #1769aa;
+        color: white;
+        border-radius: 8px;
+        font-weight: 700;
+        min-height: 45px;
     }
 
     .result-box {
@@ -68,44 +91,34 @@ st.markdown(
         font-size: 36px;
         font-weight: 800;
     }
-
-    div.stButton > button {
-        width: 100%;
-        border-radius: 8px;
-        font-weight: 700;
-        min-height: 45px;
-    }
     </style>
     """,
     unsafe_allow_html=True
 )
 
 # ============================================================
-# 3. DOWNLOAD AND LOAD THE TRAINED MODEL
+# 3. DOWNLOAD AND LOAD MODEL
 # ============================================================
 
 @st.cache_resource
 def load_model():
     """
-    Downloads the model from Google Drive if necessary,
-    then loads the trained scikit-learn pipeline.
+    Download the trained model from Google Drive when it is
+    not already present, then load the scikit-learn pipeline.
     """
 
-    if not MODEL_PATH.exists():
-        if (
-            not GOOGLE_DRIVE_FILE_ID
-            or GOOGLE_DRIVE_FILE_ID == "1YDqqIyv8gkE8lIQzQLOE9qA4NdoeHch2"
-        ):
-            raise ValueError(
-                "Please add your Google Drive file ID "
-                "in the GOOGLE_DRIVE_FILE_ID variable."
-            )
+    if not MODEL_PATH.exists() or MODEL_PATH.stat().st_size == 0:
 
-        downloaded_file = gdown.download(
-            id=GOOGLE_DRIVE_FILE_ID,
-            output=str(MODEL_PATH),
-            quiet=False
-        )
+        # Remove an incomplete model file if present.
+        if MODEL_PATH.exists():
+            MODEL_PATH.unlink()
+
+        with st.spinner("Downloading trained car price model..."):
+            downloaded_file = gdown.download(
+                id=GOOGLE_DRIVE_FILE_ID,
+                output=str(MODEL_PATH),
+                quiet=False
+            )
 
         if (
             downloaded_file is None
@@ -116,28 +129,29 @@ def load_model():
                 MODEL_PATH.unlink()
 
             raise RuntimeError(
-                "Model download failed. Check the Drive file ID, "
-                "sharing permissions, and download quota."
+                "Model download failed. Check that the Google Drive "
+                "file is shared with Anyone with the link as Viewer."
             )
 
-    # Load the model trained in your Colab notebook.
+    # The model was trained using scikit-learn 1.6.1.
+    # Keep this dependency version consistent in requirements.txt.
     return joblib.load(MODEL_PATH)
 
 
 # ============================================================
-# 4. PAGE HEADER
+# 4. HEADER
 # ============================================================
 
 st.markdown(
-    '<div class="main-title">🚘 Indian Pre-Owned Car Price Prediction</div>',
-    unsafe_allow_html=True
-)
-
-st.markdown(
-    '<div class="subtitle">'
-    'Estimate a used car’s price using its specifications, '
-    'age, condition-related attributes, and location.'
-    '</div>',
+    """
+    <h1 style="text-align:center;">
+        🚘 Indian Pre-Owned Car Price Prediction
+    </h1>
+    <p style="text-align:center;">
+        Estimate the resale value of a used car using its
+        specifications, age, and location.
+    </p>
+    """,
     unsafe_allow_html=True
 )
 
@@ -155,30 +169,32 @@ with st.sidebar:
         "on Indian pre-owned car market data."
     )
 
-    st.markdown("### Features considered")
-    st.write(
-        "- Manufacturer and model\n"
-        "- Location and ownership\n"
-        "- Manufacturing year and car age\n"
-        "- Engine specifications\n"
-        "- Fuel and transmission types\n"
-        "- Body type and seating capacity\n"
-        "- Vroom Audit Rating"
+    st.subheader("Features considered")
+
+    st.markdown(
+        """
+        - Manufacturer and model
+        - Location and ownership
+        - Manufacturing year and car age
+        - Engine specifications
+        - Fuel and transmission types
+        - Body type and seating capacity
+        - Vroom Audit Rating
+        """
     )
 
     st.divider()
 
     st.caption(
-        "Prediction results are estimates, not guaranteed "
-        "market offers."
+        "Predictions are estimates, not guaranteed market offers."
     )
 
 # ============================================================
-# 6. CAR INPUT FORM
+# 6. INPUT FORM
 # ============================================================
 
 st.subheader("Enter Car Details")
-st.write("Fill in the information below and click Predict Price.")
+st.write("Complete the fields below and click Predict Car Price.")
 
 with st.form("car_prediction_form"):
 
@@ -190,19 +206,33 @@ with st.form("car_prediction_form"):
         maker = st.selectbox(
             "Car Manufacturer",
             [
-                "Maruti Suzuki", "Hyundai", "Honda", "Tata",
-                "Mahindra", "Toyota", "Kia", "Renault",
-                "Volkswagen", "Skoda", "Ford", "BMW",
-                "Mercedes-Benz", "Audi", "Nissan", "MG",
-                "Jeep", "Datsun", "Chevrolet", "Other"
+                "Maruti Suzuki",
+                "Hyundai",
+                "Honda",
+                "Tata",
+                "Mahindra",
+                "Toyota",
+                "Kia",
+                "Renault",
+                "Volkswagen",
+                "Skoda",
+                "Ford",
+                "BMW",
+                "Mercedes-Benz",
+                "Audi",
+                "Nissan",
+                "MG",
+                "Jeep",
+                "Datsun",
+                "Chevrolet",
+                "Other"
             ]
         )
 
     with col2:
         model_name = st.text_input(
             "Car Model",
-            value="Swift",
-            help="Enter the model name as represented in the training data."
+            value="Swift"
         ).strip()
 
     with col3:
@@ -211,9 +241,9 @@ with st.form("car_prediction_form"):
             value="Delhi"
         ).strip()
 
-    col4, col5, col6 = st.columns(3)
+    col1, col2, col3 = st.columns(3)
 
-    with col4:
+    with col1:
         manufacture_year = st.number_input(
             "Manufacturing Year",
             min_value=1980,
@@ -222,32 +252,29 @@ with st.form("car_prediction_form"):
             step=1
         )
 
-    with col5:
-        current_year = 2026
-        default_age = max(0, current_year - int(manufacture_year))
-
+    with col2:
         age_of_car = st.number_input(
             "Age of Car (years)",
             min_value=0,
             max_value=60,
-            value=default_age,
+            value=6,
             step=1
         )
 
-    with col6:
+    with col3:
         distance = st.number_input(
             "Distance Driven (km)",
             min_value=0,
-            max_value=2_000_000,
+            max_value=2000000,
             value=35000,
             step=1000
         )
 
     st.markdown("### ⚙️ Engine and Performance")
 
-    col7, col8, col9 = st.columns(3)
+    col1, col2, col3 = st.columns(3)
 
-    with col7:
+    with col1:
         engine_displacement = st.number_input(
             "Engine Displacement (cc)",
             min_value=0,
@@ -256,7 +283,7 @@ with st.form("car_prediction_form"):
             step=1
         )
 
-    with col8:
+    with col2:
         engine_power = st.number_input(
             "Engine Power (bhp)",
             min_value=0.0,
@@ -265,7 +292,7 @@ with st.form("car_prediction_form"):
             step=1.0
         )
 
-    with col9:
+    with col3:
         fuel_type = st.selectbox(
             "Fuel Type",
             ["Petrol", "Diesel", "CNG", "LPG", "Electric", "Hybrid"]
@@ -273,9 +300,9 @@ with st.form("car_prediction_form"):
 
     st.markdown("### 🛞 Body and Transmission")
 
-    col10, col11, col12 = st.columns(3)
+    col1, col2, col3 = st.columns(3)
 
-    with col10:
+    with col1:
         body_type = st.selectbox(
             "Body Type",
             [
@@ -285,13 +312,13 @@ with st.form("car_prediction_form"):
             ]
         )
 
-    with col11:
+    with col2:
         transmission = st.selectbox(
             "Transmission",
             ["Manual", "Automatic"]
         )
 
-    with col12:
+    with col3:
         owner_type = st.selectbox(
             "Owner Type",
             [
@@ -301,21 +328,23 @@ with st.form("car_prediction_form"):
             ]
         )
 
-    col13, col14, col15 = st.columns(3)
+    col1, col2, col3 = st.columns(3)
 
-    with col13:
+    with col1:
         door_count = st.selectbox(
             "Number of Doors",
-            [2, 3, 4, 5, 6]
+            [2, 3, 4, 5, 6],
+            index=3
         )
 
-    with col14:
+    with col2:
         seat_count = st.selectbox(
             "Seating Capacity",
-            [2, 4, 5, 6, 7, 8, 9, 10]
+            [2, 4, 5, 6, 7, 8, 9, 10],
+            index=2
         )
 
-    with col15:
+    with col3:
         audit_rating = st.number_input(
             "Vroom Audit Rating",
             min_value=0.0,
@@ -328,11 +357,12 @@ with st.form("car_prediction_form"):
 
     submitted = st.form_submit_button(
         "🔍 Predict Car Price",
-        type="primary"
+        type="primary",
+        use_container_width=True
     )
 
 # ============================================================
-# 7. VALIDATE INPUTS AND MAKE A PREDICTION
+# 7. PREDICTION
 # ============================================================
 
 if submitted:
@@ -342,10 +372,10 @@ if submitted:
         st.stop()
 
     if not location:
-        st.error("Please enter the car's location.")
+        st.error("Please enter the city or location.")
         st.stop()
 
-    # Keep these column names aligned with the cleaned training data.
+    # Column names must match the cleaned training dataset.
     input_data = pd.DataFrame([{
         "Maker": maker,
         "model": model_name,
@@ -364,19 +394,22 @@ if submitted:
         "fuel_type": fuel_type
     }])
 
-    st.subheader("Prediction Result")
-
     try:
-        with st.spinner("Loading model and predicting price..."):
-            model = load_model()
+        model = load_model()
+
+        with st.spinner("Predicting the estimated car price..."):
             prediction = model.predict(input_data)
             predicted_price = float(prediction[0])
 
-        if predicted_price < 0:
+        if not pd.notna(predicted_price):
+            st.error("The model returned an invalid prediction.")
+
+        elif predicted_price < 0:
             st.warning(
-                "The model returned a negative price. "
-                "Please check the model and input data."
+                f"The model returned a negative prediction: "
+                f"₹ {predicted_price:,.0f}. Please check the model."
             )
+
         else:
             st.markdown(
                 f"""
@@ -393,9 +426,9 @@ if submitted:
             )
 
             st.caption(
-                "This is a machine-learning estimate. Actual selling "
-                "prices may vary with condition, documentation, "
-                "negotiation, and market demand."
+                "This is an estimated price, not a guaranteed selling "
+                "price. Actual value depends on vehicle condition, "
+                "documentation, market demand, and negotiation."
             )
 
             with st.expander("View submitted car details"):
@@ -409,9 +442,8 @@ if submitted:
         st.error("Unable to generate the prediction.")
 
         st.write(
-            "Please check that the model file is accessible and that "
-            "the app uses the same scikit-learn version and feature "
-            "schema used during training."
+            "Check the Google Drive download permissions, model file, "
+            "feature names, and package compatibility."
         )
 
-        st.code(str(error))
+        st.code(f"{type(error).__name__}: {error}")
